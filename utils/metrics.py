@@ -10,10 +10,9 @@ class PSNR:
         self.name = "PSNR"
         self.max_value = max_value  # 255 or 1
 
-    @staticmethod
-    def __call__(img1, img2, max_value):
+    def __call__(self, img1, img2):
         mse = torch.mean((img1 - img2) ** 2)
-        return 20 * torch.log10(max_value / torch.sqrt(mse))
+        return 20 * torch.log10(self.max_value / torch.sqrt(mse))
 
 
 if __name__ == '__main__':

@@ -9,6 +9,8 @@ import cv2
 from PIL import Image
 import json
 from tqdm import tqdm
+import argparse
+
 
 def load_image(name_jpg, mode=1):
     return np.asarray(Image.open(name_jpg).convert('RGB')).astype(np.float32) / 255.0
@@ -114,49 +116,40 @@ def load_config(file):
     return configuration
 
 
-config = load_config('config.json')['config']
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input_dir", type=str, required=True)
+    parser.add_argument("--output_dir", type=str, required=True)
+    parser.add_argument("--weight_path", type=str, default="checkpoints/checkpoint.pth")
+    args = parser.parse_args()
 
-# dataset
-data_path = config['test']['data_path']
-weight_path = config['test']['weight_path']
-output_path = config['test']['output_path']
-target_path = config['test']['target_path']
+    os.makedirs(args.output_dir)
+    # weights of the models being loaded
+    weights = torch.load(args.weight_path, map_location='cuda:0')
 
-# weights of the models being loaded
-weights = torch.load(weight_path, map_location='cuda:0')
+    # models creation
+    model = HDRNet()
+    model = torch.nn.DataParallel(model)
+    model.to('cuda:0')
+    model.load_state_dict(weights, strict=False)
+    model = model.eval()
 
-# models creation
-model = HDRNet()
-model = torch.nn.DataParallel(model)
-model.to('cuda:0')
-model.load_state_dict(weights, strict=False)
-model = model.eval()
+    images = os.listdir(args.input_dir)
 
-im_paths = [im_path for im_path in os.listdir(data_path) if im_path[0] != "."]
+    input_tensors, names = get_input_tensors(images, args.input_dir)
 
-m_scores = [[], []]
-metrics = [PSNR(max_value=1.0), SSIM()]
+    #for i in range(len(input_tensors)):
+    for name, input_image in tqdm(zip(names, input_tensors), desc="Running ECCMNet...", total=len(names)):
+        input_image = torch.unsqueeze(input_image, 0)
 
-pbar = tqdm(im_paths, total=len(im_paths), desc="evaluating...")
-for im_path in pbar:
-    input_image = load_and_transform_image(im_path)
-    input_image = torch.unsqueeze(input_image, 0)
+        if torch.cuda.is_available():
+            input_image = input_image.cuda()
+            normalized_input = (input_image - 0.5) / 0.5
 
-    gt_name = "_".join(os.path.basename(im_path).split("_")[:-1]) + ".jpg"
-    gt_image = load_and_transform_image(os.path.join(target_path, gt_name))
-    gt_image = torch.stack([gt_image])
+        with torch.no_grad():
+            out, _ = model(normalized_input)
 
-    if torch.cuda.is_available():
-        input_image = input_image.cuda()
-        gt_image = gt_image.cuda()
-        normalized_input = (input_image - 0.5) / 0.5
-        normalized_gt = gt_image
-
-
-    with torch.no_grad():
-        out, _ = model(normalized_input)
-
-    for m_idx, metric in enumerate(metrics):
-        m_scores[m_idx].append(metric(normalized_gt, out).item())
-    
-    pbar.set_description("evaluating... PSNR: {} | SSIM: {}".format(*[round(sum(m_score) / len(m_score), 3) for m_score in m_scores]))
+        display_data = torch.cat(
+            [out], dim=0)
+        save = os.path.join(args.output_dir, name)
+        utils.save_image(display_data, save, nrow=1, padding=2, normalize=False)

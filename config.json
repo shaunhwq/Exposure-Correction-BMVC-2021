@@ -32,9 +32,10 @@
 
     "test":
     {
-      "data_path": "/home/lf216/PycharmProjects/HDRembed/experiments/Consistency Modeling/real_images",
-      "weight_path": "/home/lf216/PycharmProjects/HDRembed/experiments/Consistency Modeling/checkpoints/checkpoint.pth",
-      "output_path": "/home/lf216/PycharmProjects/HDRembed/experiments/Consistency Modeling/results"
+      "data_path": "/data2/shaun/datasets/exposure_correction/exposure_errors/testing/INPUT_IMAGES/",
+      "target_path": "/data2/shaun/datasets/exposure_correction/exposure_errors/testing/expert_c_testing_set/",
+      "weight_path": "/data2/shaun/projects/color_evaluation/Exposure-Correction-BMVC-2021/checkpoints/checkpoint.pth",
+      "output_path": "/data2/shaun/projects/color_evaluation/Exposure-Correction-MBVC-2021/results"
     }
   }
 }
